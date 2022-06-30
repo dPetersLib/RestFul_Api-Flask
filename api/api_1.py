@@ -1,6 +1,7 @@
 import hashlib
 import datetime
-from flask import Flask, request, jsonify
+from bson import ObjectId
+from flask import Flask, make_response, request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from pymongo import MongoClient
 import pymongo
@@ -10,17 +11,31 @@ jwt = JWTManager(app)
 app.config['JWT_SECRET_KEY'] = 'Your_Secret_Key'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(days=1)
 
-connection_url = 'mongodb+srv://sloovi:sloovi@template.t6v0y.mongodb.net/?retryWrites=true&w=majority'
+connection_url = 'mongodb+srv://peter:peter@python-cluster.wfuaylv.mongodb.net/?retryWrites=true&w=majority'
 client = pymongo.MongoClient(connection_url)
 
 # Database
-Database = client.get_database('template')
+Database = client.get_database('myfirstdb')
 # Table
-users_collection = Database.Users
-template_collection = Database.template
+users_collection = Database.users
+template_collection = Database.templates
 
 
-@app.route("/api/v1/register", methods=["POST"])
+# Check if user is authenticated
+
+def user_is_authenticated():
+    current_user = get_jwt_identity()  # Get the identity of the current user
+    user_from_db = users_collection.find_one({'email': current_user})
+    if user_from_db:
+        # return an empty response
+        # del user_from_db['_id'], user_from_db['password']
+        # return jsonify({'profile': user_from_db}), 200
+        return True
+    else:
+        return False
+
+
+@app.route("/register", methods=["POST"])
 def register():
     new_user = request.get_json()  # store the json body request
     new_user["password"] = hashlib.sha256(
@@ -34,7 +49,7 @@ def register():
         return jsonify({'msg': 'Username already exists'}), 409
 
 
-@app.route("/api/v1/login", methods=["POST"])
+@app.route("/login", methods=["POST"])
 def login():
     login_details = request.get_json()  # store the json body request
     user_from_db = users_collection.find_one(
@@ -51,18 +66,54 @@ def login():
     return jsonify({'msg': 'The username or password is incorrect'}), 401
 
 
-@app.route("/api/v1/template", methods=["GET"])
+@app.route("/templates", methods=["GET", "POST"])
 @jwt_required()
 def get_all_template():
-    current_user = get_jwt_identity()  # Get the identity of the current user
-    user_from_db = users_collection.find_one({'email': current_user})
-    if user_from_db:
-        # return an empty response
-        # del user_from_db['_id'], user_from_db['password']
-        # return jsonify({'profile': user_from_db}), 200
-        return jsonify(''), 200
-    else:
-        return jsonify({'msg': 'You are not authenticated'}), 404
+    if request.method == 'GET':
+        templates = []
+        for template in template_collection.find():
+            template["_id"] = str(template["_id"])
+            templates.append(template)
+        return make_response(jsonify(templates)) 
+
+    elif request.method == 'POST':
+        template = request.get_json()
+        template_collection.insert_one(template)
+        return make_response("", 201)
+
+
+@app.route("/templates/<template_id>", methods=["GET", "PUT", "DELETE"])
+@jwt_required()
+def get_single_template(template_id):
+    # get a single record
+    if request.method == 'GET': 
+        try:
+            template = template_collection.find_one({"_id": ObjectId(template_id)})
+            template["_id"] = str(template["_id"])
+            return make_response(jsonify(template))
+        except:
+            # Object with id not found
+            return make_response({'msg': 'Not found'}, 404)
+    
+    # update a record
+    elif request.method == 'PUT':
+        try:
+            template_collection.find_one_and_update({"_id": ObjectId(template_id)}, {"$set": request.get_json()})
+            return make_response("", 200)
+        except:
+            # Object with id not found
+            return make_response({'msg': 'not found'}, 404)
+        
+    # delete a single record
+    elif request.method == 'DELETE': 
+        try:
+            template = template_collection.find_one_and_delete({"_id": ObjectId(template_id)})
+            return make_response("", 200)
+        except:
+            # Object with id not found
+            return make_response({'msg': 'Not found'}, 404)
+
+
 
 
 if __name__ == '__main__':
