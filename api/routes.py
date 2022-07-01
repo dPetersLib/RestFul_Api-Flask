@@ -1,7 +1,8 @@
 import hashlib
 from flask import Flask, make_response, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from bson import ObjectId
+from bson.objectid import ObjectId
+# from bson import ObjectId
 
 from api import app, users_collection, template_collection
 
