@@ -38,7 +38,7 @@ def login():
     return jsonify({'msg': 'The username or password is incorrect'}), 401
 
 
-@app.route("/templates", methods=["GET", "POST"])
+@app.route("/template", methods=["GET", "POST"])
 @jwt_required()
 def get_all_template():
     if request.method == 'GET':
@@ -54,7 +54,7 @@ def get_all_template():
         return make_response("", 201)
 
 
-@app.route("/templates/<template_id>", methods=["GET", "PUT", "DELETE"])
+@app.route("/template/<template_id>", methods=["GET", "PUT", "DELETE"])
 @jwt_required()
 def get_single_template(template_id):
     # get a single record
